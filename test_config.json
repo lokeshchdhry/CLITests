@@ -1,0 +1,28 @@
+{
+  "sdk": "",
+  "sdk-branch": "",
+  "android": {
+    "devicebuild": {
+      "platform": "android",
+      "target": "device",
+      "deviceid": "03055ed008e41a7d"
+    },
+    "emulatorbuild": {
+      "platform": "android",
+      "target": "emulator",
+      "deviceid": "Nexus6_API23_6.0_x86_googleAPI"
+    },
+    "package": {
+      "platform": "android",
+      "target": "dist-playstore",
+      "keystore": "/Users/lchoudhary/Desktop/android_keystore/androidkeystore",
+      "storepassword": "bnorhwe",
+      "alias": "release"
+    }
+  },
+  "ios": {
+    "devicebuild": {},
+    "simulatorbuild": {},
+    "packageadhoc": {}
+  }
+}

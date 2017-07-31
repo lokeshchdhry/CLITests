@@ -1,0 +1,19 @@
+{
+  "name": "clitests",
+  "version": "1.0.0",
+  "description": "CLI tests for APPC CLI.",
+  "main": "test.js",
+  "scripts": {
+    "test": "run"
+  },
+  "author": "Lokesh Choudhary",
+  "license": "ISC",
+  "dependencies": {
+    "adbkit": "^2.10.0",
+    "chalk": "^2.0.1",
+    "commander": "^2.11.0",
+    "inquirer": "^3.2.0",
+    "node-persist": "^2.1.0",
+    "tree-kill": "^1.1.0"
+  }
+}
