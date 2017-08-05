@@ -6,7 +6,7 @@ const spawn = require('child_process').spawn,
       configData = require('./test_config'),
       storage = require('node-persist'),
       setup = require('./setup'),
-      fs = require('fs'),
+      fs = require('fs-extra'),
       path = require('path'),
       os = require('os'),
       kill = require('tree-kill'),
@@ -31,7 +31,7 @@ const platform = os.platform,
 let
   appcExe, pathPart, appc_ver;
 
-if(fs.existsSync(verFile)){                                                     //Checking if the .version file exists
+if(fs.pathExistsSync(verFile)){                                                 //Checking if the .version file exists
   const
     options = {encoding: 'utf8'};
   appc_ver = fs.readFileSync(verFile, options);                                 //Reading the .version file for the version
@@ -87,7 +87,7 @@ class util{
     });
     spawn_prc.on('error', err => {
       isErr = true;
-      fail(`Failed to get SDK install path: ${err}`);
+      fail(`\u2717 Failed to get SDK install path: ${err}`);
     });
     spawn_prc.on('exit', () => {
       if (isErr){
@@ -121,11 +121,12 @@ class util{
           })
           .then(installpath => {
             sdkpath = path.join(installpath, pathPart, sdk);                    //Check for SDK folder
-            if(!fs.existsSync(sdkpath)){                                        //Checking if the sdk path doesn't exist
+            if(!fs.pathExistsSync(sdkpath)){                                    //Checking if the sdk path doesn't exist
               resolve(sdkObj);                                                  /* Resolve with sdkObj = { type: NO_BRANCH, val: sdk, isInstalled: false };*/
             }
             else{
               sdkObj.isInstalled = true;                                        //Specified sdk is installed
+              console.log('\u2714 SDK '+color.cyan(sdk)+' is already installed.');
               resolve(sdkObj);                                                  /* Resolve with sdkObj = { type: NO_BRANCH, val: sdk, isInstalled: true };*/
             }
           });
@@ -136,7 +137,7 @@ class util{
         }
       }
       else{
-        reject(color.error('No SDK specified in the command.'));                //Rejecting with message
+        reject(color.error('\u2717 No SDK specified in the command.'));                //Rejecting with message
       }
     });
   }
@@ -178,7 +179,7 @@ class util{
       });
       spawn_prc.on('error', err => {
         isErr = true;
-        reject(`Failed to install SDK ${ver}: ${err}`);                         //Rejecting with message
+        reject(`\u2717 Failed to install SDK ${ver}: ${err}`);                  //Rejecting with message
       });
       spawn_prc.on('exit', () => {
         if(isErr){
@@ -189,13 +190,13 @@ class util{
         //Latest is already installed
         if(PATTERN1.test(output)){
           sdkval = output.split(' ')[3];
-          console.log(`Latest SDK from the branch already installed: ${sdkval}.`);
+          console.log(`\u2714 Latest SDK from the branch already installed: ${sdkval}.`);
           resolve(sdkval);                                                      //Resolving with the parsed sdk value which is used further in the '.then' block in utils.js
         }
         else{
           //Installation done successfully
           if(PATTERN2.test(output)){
-            console.log('Done installing SDK.');
+            console.log('\u2714 Done installing SDK.');
             resolve();                                                          //Resolve with nothing
           }
         }
@@ -227,13 +228,13 @@ class util{
           spawn_prc = spawn(appcExe, args);
           spawn_prc.stdout.on('data', data => {
             if(PATTERN.test(data)){
-              console.log('\u2714 Selected SDK '+sdk+' in the CLI.');
+              console.log('\u2714 Selected SDK '+color.cyan(sdk)+' in the CLI.');
               resolve(true);                                                    //Resolve with true so that the next then can proceed
             }
           });
           spawn_prc.on('error', () => {
             isErr = true;
-            console.log('Failed to select SDK '+sdk);
+            console.log('\u2717 Failed to select SDK '+sdk);
             reject('fail');
           });
           spawn_prc.on('exit', () => {
@@ -254,6 +255,8 @@ class util{
   @param {array} args - argument to pass to the spawn command
   **/
   static createProject(){
+    this.deleteAPK();                                                           //Deleting the apk
+    this.deleteApp();                                                           //Deleting the app project
     return new Promise((resolve, reject) => {
       let
         args = ['new', '--force',
@@ -266,7 +269,7 @@ class util{
         output;
 
       args = args.concat(FLAGS);
-      console.log(args);
+      // console.log(args);
       const
         subspawn = this.platformConvert(appcExe, args),
         spawn_prc = spawn(appcExe, args);
@@ -276,24 +279,40 @@ class util{
       });
       spawn_prc.on('exit', code => {
         if(code !== 0){
-          console.log('Failed to create project.');
+          console.log('\u2717 Failed to create project.');
           reject(false);                                                        //rejecting it with fail is app creation fails
         }
       });
       spawn_prc.on('close', () => {
         if(/new completed/g.test(output)){
-          console.log('\u2714 Project created successfully.');
+          console.log('\u2714 Project '+color.cyan('CLItestApp')+' created successfully.');
           resolve(true);                                                        //Resolving with true if app created successfully
         }
       });
   });
 }
 
-static androidEmuBuild(){
+/**
+Build to emulator native or genymotion
+@param {String} pid - pid of the spawn process
+@param {String} output - output of spawn
+@param {array} args - argument to pass to the spawn command
+@param {String} platform - platform obtained from test_config.json
+@param {String} target - target obtained from test_config.json
+@param {String} deviceid - deviceid obtained from test_config.json
+**/
+static androidEmuBuild(emutype){
   const
     platform = configData.android.emulatorbuild.platform,
-    target = configData.android.emulatorbuild.target,
-    deviceid = configData.android.emulatorbuild.deviceid;
+    target = configData.android.emulatorbuild.target;
+  let
+    deviceid;
+  if(emutype === 'geny'){                                                       //Checking if emulator type is genymotion
+    deviceid = configData.android.genymotionbuild.deviceid;                     //If yes the get the genymotion deviceid
+  }
+  else{
+    deviceid = configData.android.emulatorbuild.deviceid;                       //If no then get the native android emulator deviceid
+  }
   let
     args = ['run',
             '--platform', platform,
@@ -303,7 +322,7 @@ static androidEmuBuild(){
     output;
 
     args = args.concat(FLAGS);
-    console.log(args);
+    // console.log(args);
   return new Promise((resolve, reject) => {
     const
       subspawn = this.platformConvert(appcExe, args),
@@ -316,21 +335,30 @@ static androidEmuBuild(){
       });
 
       pid = spawn_prc.pid;                                                      //Getting the pid of the spawn_prc
-
       //There is no way I can wait till the emulator launches, installs & launches app, using setTimeout for this purpose
-      setTimeout(function(){
+      setTimeout(() => {
         if(/Start application log/g.test(output)){
-          console.log('\u2714 App successfully installed & launched on emulator: '+ deviceid);
-          resolve(pid);                                                          //Resolving with the pid
+          console.log('\u2714 App '+color.cyan('CLItestApp')+' successfully installed & launched on android emulator: '+color.cyan(deviceid));
+          resolve(pid);                                                         //Resolving with the pid
         }
         else{
-          console.log('App failed to install & launch on emulator: '+ deviceid);
+          console.log('\u2717 App '+color.cyan('CLItestApp')+' failed to install & launch on emulator: '+ color.cyan(deviceid));
           resolve(pid);                                                         //Rejecting with pid
         }
       }, 60000);
   });
 }
 
+/**
+Build to device
+@param {String} pid - pid of the spawn process
+@param {String} output - output of spawn
+@param {array} args - argument to pass to the spawn command
+@param {String} platform - platform obtained from test_config.json
+@param {String} target - target obtained from test_config.json
+@param {String} deviceid - deviceid obtained from test_config.json
+@param {String} deviceid_adb - deviceid obtained from adbkit
+**/
 static androidDeviceBuild(){
   const
     platform = configData.android.devicebuild.platform,
@@ -346,7 +374,7 @@ static androidDeviceBuild(){
     output;
 
     args = args.concat(FLAGS);
-    console.log(args);
+    // console.log(args);
   return new Promise((resolve, reject) => {
     const
       subspawn = this.platformConvert(appcExe, args),
@@ -354,7 +382,7 @@ static androidDeviceBuild(){
     let
       pid = '',
       client,
-      deviceid;
+      deviceid_adb;
 
       spawn_prc.stdout.on('data', data => {
         output += data.toString().trim();
@@ -362,45 +390,57 @@ static androidDeviceBuild(){
 
       pid = spawn_prc.pid;                                                      //Getting the pid of the spawn_prc
       //wait for 1 min for the app to install & launch on device then kill the process
-      setTimeout(function(){
+      setTimeout(() =>{
         if(/Start application log/g.test(output)){
-          console.log('\u2714 App successfully installed & launched on device: '+deviceid);
-          console.log('Deleting the app from the device.');
+          console.log('\u2714 App '+color.cyan('CLItestApp')+' successfully installed & launched on device: '+color.cyan(deviceid));
+          console.log(color.dim('Deleting the app '+color.cyan('CLItestApp')+' from the device: '+color.cyan(deviceid)));
           //Removing the app from the device
           client = adb.createClient();                                          //Creating a client
           client.listDevices()
           .then(device => {
             if(device.length === 0){
-              console.log('No devices connected. Please uninstall the app manually.');
+              console.log('\u2717 No devices connected. Please uninstall the app manually.');
               resolve(pid);                                                     //If device array length is zero then resolve with false
             }
             else{
-              deviceid = device[0].id;                                          //Getting the device id/serial
-              return client.isInstalled(deviceid, 'com.appc.clitestapp');        //check if the app is installed on the device
+              deviceid_adb = device[0].id;                                      //Getting the device id/serial
+              return client.isInstalled(deviceid_adb, 'com.appc.clitestapp');   //check if the app is installed on the device
             }
           })
           .then(() => {
-            return client.uninstall(deviceid, 'com.appc.clitestapp');           //If app is installed, uninstall the app from the device
+            return client.uninstall(deviceid_adb, 'com.appc.clitestapp');       //If app is installed, uninstall the app from the device
           })
           .then(result => {
             if(result){
-              console.log('App deleted successfully from the device.');
+              console.log('\u2714 App '+color.cyan('CLItestApp')+' deleted successfully from the device: '+color.cyan(deviceid));
               resolve(pid);                                                     //Resolving with the pid
             }
             else{
-              console.log('App could not be deleted successfully from the device.');
+              console.log('\u2717 App '+color.cyan('CLItestApp')+' could not be deleted successfully from the device: '+color.cyan(deviceid));
               resolve(pid);                                                     //Resolving with the pid
             }
           });
         }
         else{
-          console.log('App failed to install & launch on device: '+deviceid);
+          console.log('\u2717 App '+color.cyan('CLItestApp')+' failed to install & launch on device: '+color.cyan(deviceid));
           resolve(pid);                                                         //Rejecting with pid
         }
       }, 60000);
   });
 }
 
+/**
+Package the app
+@param {String} pid - pid of the spawn process
+@param {String} output - output of spawn
+@param {array} args - argument to pass to the spawn command
+@param {String} platform - platform obtained from test_config.json
+@param {String} target - target obtained from test_config.json
+@param {String} keystore - android keystore path
+@param {String} storepassword - password for the keystore
+@param {String} alias - alias for the keystore
+@param {Boolean} apkexists - If the apk is created in the path
+**/
 static androidPackage(){
   const
     platform = configData.android.package.platform,
@@ -419,7 +459,7 @@ static androidPackage(){
             '--output-dir', genFilePath],
     output;
     args = args.concat(FLAGS);
-    console.log(args);
+    // console.log(args);
     return new Promise((resolve, reject) => {
       //cd in to the project dir
       process.chdir(appPath);
@@ -435,22 +475,21 @@ static androidPackage(){
       pid = spawn_prc.pid;                                                      //Getting the pid of the spawn_prc
 
       spawn_prc.on('exit', code => {
-        console.log('code: '+code);
         if(code !== 0){
-          console.log('Something went wrong while packaging. Please check the logs at :');
+          console.log('\u2717 Something went wrong while packaging. Please check the logs at :');
           reject(false);                                                        //rejecting it with fail
         }
       });
       spawn_prc.on('close', () => {
         const
-          apkexists = fs.existsSync(apkPath);
+          apkexists = fs.pathExistsSync(apkPath);
 
         if(/Packaging complete/g.test(output) && apkPath){                      //Checking if app is packaged & the apk is present
-          console.log('\u2714 App successfully packaged at: '+color.cyan(genFilePath+'/CLItestApp.apk'));
+          console.log('\u2714 App '+color.cyan('CLItestApp')+' successfully packaged at: '+color.cyan(genFilePath+'/CLItestApp.apk'));
           resolve(pid);                                                         //Resolving with the pid
         }
         else if(/ERROR/g.test(output)){
-          console.log('ERROR: '+ color.error(output.split('ERROR')[1]));
+          console.log('\u2717 ERROR: '+ color.error(output.split('ERROR')[1]));
           // console.log('App failed to package. Please refer the logs at: ');
           resolve(pid);                                                         //Resolving with pid
         }
@@ -458,6 +497,12 @@ static androidPackage(){
     });
 }
 
+/**
+Install APK on device
+@param {Object} client - Object of adbkit
+@param {String} deviceid - deviceid of the connected device obtained feom adbkit
+@param {array} args - argument to pass to the spawn command
+**/
 static installAPKOnDevice(){
   let
     client, deviceid = '';
@@ -467,26 +512,26 @@ static installAPKOnDevice(){
     client.listDevices()                                                        //Getting the connected device info
     .then(device => {
       if(device.length === 0){
-        console.log('No devices connected. Skipping installing on device.');
+        console.log('\u2717 No devices connected. Skipping installing on device.');
         resolve(false);                                                         //If device array length is zero then resolve with false
       }
       else{
         deviceid = device[0].id;                                                //Getting the device id/serial
-        console.log('Installing APK on the connected device.');
+        console.log('Installing APK on the connected device: '+color.cyan(deviceid));
         return client.install(deviceid, apkPath);                               //Install the apk on the device
       }
     })
     .then(() => {
       client.isInstalled(deviceid, 'com.appc.clitestapp');                      //check if the app is installed on the device
     })
-    .then(() => {
-      console.log('APK successfully installed on the device.');
+    .then(result => {
+      console.log('\u2714 APK successfully installed on the device: '+color.cyan(deviceid));
       return client.startActivity(deviceid, {wait: true, component: 'com.appc.clitestapp/.ClitestappActivity', action: 'MAIN', catagory: 'LAUNCHER'}); //Start the app on the device
     })
     .then(result =>{
       if(result){
-        console.log('App launched successfully');
-        console.log('Deleting the app from the device.');
+        console.log('\u2714 App '+color.cyan('CLItestApp')+' launched successfully');
+        console.log(color.dim('Deleting the app '+color.cyan('CLItestApp')+' from the device.'));
         return client.uninstall(deviceid, 'com.appc.clitestapp');               //If activity is started uninstall the app from the device
       }
       else{
@@ -495,17 +540,82 @@ static installAPKOnDevice(){
     })
     .then(result => {
       if(result){
-        console.log('App deleted successfully from the device.');
+        console.log('\u2714 App '+color.cyan('CLItestApp')+' deleted successfully from the device.\n');
         resolve(true);                                                          //If uninstall is successfull then resolve with true
       }
       else{
-        console.log('Failed to delete app from the device.');
+        console.log('\u2717 Failed to delete app '+color.cyan('CLItestApp')+' from the device.\n');
         resolve(false);                                                         //If uninstall is unsuccessfull then resolve with false
       }
     })
     .catch(err => {
       console.log(err);                                                         //Catch & display errors if any
     });
+  });
+}
+
+/**
+Delete the app
+@param {String} projdir - path to project
+**/
+static deleteApp(){
+  const
+    projdir = path.join(__dirname, 'projects');
+  if(fs.pathExistsSync(projdir)){
+    fs.removeSync(projdir);
+    console.log('\u2714 Deleted the project '+color.cyan('CLItestApp')+'.');
+  }
+  else{
+    console.log('Project '+color.cyan('CLItestApp')+' does not exist. Skipping project deletion.');
+  }
+}
+
+/**
+Delete the app
+@param {String} genFilePath - path to generatedfiles folder which contains the apk
+**/
+static deleteAPK(){
+    if(fs.pathExistsSync(genFilePath)){
+      fs.removeSync(genFilePath);
+      console.log('\u2714 Deleted apk '+color.cyan('CLItestApp.apk')+'.');
+    }
+    else{
+      console.log('APK '+color.cyan('CLItestApp.apk')+' does not exist. Skipping APK cleanup.');
+    }
+}
+
+/**
+Kill the spawn process after a timeout
+@param {String} pid- PID of the spawn process
+**/
+static killProcess(pid){
+  new Promise(resolve => {
+    setTimeout(() => {
+      kill(pid);
+      resolve(true);
+    }, 5000);
+  });
+}
+
+/**
+Poweroff Vbox headless. We have to do this as when we kill the spawn process the vboxheadless instance does not close & it causes issues when launching emulators again.
+@param {String} genyid - genymotion emulator name
+**/
+static killVbox(){
+  const
+    genyid = configData.android.genymotionbuild.deviceid;
+  new Promise(resolve => {
+    setTimeout(() => {
+      exec('VBoxManage controlvm '+'"'+genyid+'"'+' poweroff', (err, done) => {
+        if(err){
+          console.log('\u2717 Failed to close the vboxheadless: '+err);
+          resolve(false);
+        }
+        else{
+          resolve(true);
+        }
+      });
+    }, 2000);
   });
 }
   /**

@@ -10,7 +10,10 @@
     "emulatorbuild": {
       "platform": "android",
       "target": "emulator",
-      "deviceid": "Nexus6_API23_6.0_x86_googleAPI"
+      "deviceid": "Nexus_6_API_23_6.0_x86_GoogleAPI"
+    },
+    "genymotionbuild": {
+      "deviceid": "Google Nexus 6P - 6.0.0 - API 23 - 1440x2560"
     },
     "package": {
       "platform": "android",
