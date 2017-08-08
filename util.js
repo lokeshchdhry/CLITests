@@ -2,9 +2,7 @@
 
 const spawn = require('child_process').spawn,
       exec = require('child_process').exec,
-      execFile = require('child_process').execFile,
       configData = require('./test_config'),
-      storage = require('node-persist'),
       setup = require('./setup'),
       fs = require('fs-extra'),
       path = require('path'),
