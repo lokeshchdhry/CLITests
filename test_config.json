@@ -18,14 +18,29 @@
     "package": {
       "platform": "android",
       "target": "dist-playstore",
-      "keystore": "/Users/lchoudhary/Desktop/android_keystore/androidkeystore",
-      "storepassword": "bnorhwe",
-      "alias": "release"
+      "keystore": "",
+      "storepassword": "",
+      "alias": ""
     }
   },
   "ios": {
-    "devicebuild": {},
-    "simulatorbuild": {},
-    "packageadhoc": {}
+    "devicebuild": {
+      "platform": "iphone",
+      "target": "device",
+      "deviceid": "5fc531f1a32a6f1813af7abfcd68fe14b0515b2b",
+      "developername": "",
+      "provisioningprofileuuid": ""
+    },
+    "simulatorbuild": {
+      "platform": "iphone",
+      "target": "simulator",
+      "deviceid": "3F9FFBCE-AE17-4B38-A8BA-DB8D12D1EA04"
+    },
+    "packageadhoc": {
+      "platform": "iphone",
+      "target": "dist-adhoc",
+      "distributionname": "",
+      "provisioningprofileuuid": ""
+    }
   }
 }

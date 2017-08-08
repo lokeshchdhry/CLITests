@@ -19,34 +19,29 @@ program
 .parse(process.argv);
 
 const
-  s_flag = process.argv[2];                                                     //Get the -s flag
+  s_flag = process.argv[2];                                                     //get the -s flag
 let
-  inputSDK = process.argv[3];                                                   //Get the SDK entered
+  inputSDK = process.argv[3];                                                   //get the SDK entered
 
-setup(s_flag)                                                                   //Check if setup is run if not run it first
-.then(result => {
-  console.log(color.underline(color.bold('\nCHECKING IF SDK IS INSTALLED.')));
-  // console.log(result);
-  return util.isSDKInstalled(inputSDK);                                         //Then check if specified SDK is already installed
-})
+
+console.log(color.underline(color.bold('\nCHECKING IF SDK IS INSTALLED.')));
+return util.isSDKInstalled(inputSDK)                                            //check if specified SDK is already installed
 .then(sdkobj => {
   // console.log(sdkobj);
-  if(sdkobj.isInstalled === false){                                             //If not installed
+  if(sdkobj.isInstalled === false){                                             //if not installed
     console.log('SDK not installed. Installing SDK .....');
-    return util.installSDK(sdkobj)                                              //Install the sdk
+    return util.installSDK(sdkobj)                                              //install the sdk
     .then(val => {
       console.log('Selecting in CLI the SDK: '+val);
       return util.selectSDK(val);                                               //select the installed sdk in the CLI
     })
     .then(result => {
-      // console.log('~~~~~~'+result);
       return result;                                                            //return the result to the next then
     });
   }
   else {
-    return util.selectSDK(inputSDK)                                             //If sdk is already installed then select it in CLI
+    return util.selectSDK(inputSDK)                                             //if sdk is already installed then select it in CLI
     .then(result => {
-      // console.log('~*~*~*~*~'+result);
       return result;                                                            //return the result to the next then
     });
   }
@@ -59,6 +54,32 @@ setup(s_flag)                                                                   
   }
 })
 .then(done => {
+  console.log(color.underline(color.bold('\nIPHONE SIMULATOR BUILD.')));
+  console.log(color.dim('Running iphone simulator build .....'));
+  return util.iosEmuBuild();
+})
+.then(pid => {
+  console.log('\u2714 Closing Iphone emulator.');
+  return util.killProcess(pid);
+})
+.then(() => {
+  console.log(color.underline(color.bold('\nIOS DEVICE BUILD.')));
+  console.log(color.dim('Running iphone device build .....'));
+  return util.iosDeviceBuild();
+})
+.then(pid => {
+  return util.killProcess(pid);
+})
+.then(() => {
+  console.log(color.underline(color.bold('\nIOS ADHOC PACKAGING.')));
+  console.log(color.dim('Running ios adhoc packaging .....'));
+  return util.iosAdhocPackage();
+})
+.then(pid => {
+  // console.log('\u2714 Closing Iphone emulator.');
+  return util.killProcess(pid);
+})
+.then(() => {
   console.log(color.underline(color.bold('\nANDROID EMULATOR BUILD.')));
   console.log(color.dim('Running emulator build .....'));
   // console.log('$$$$$'+done);
@@ -72,16 +93,15 @@ setup(s_flag)                                                                   
 .then(() => {
   console.log(color.underline(color.bold('\nANDROID DEVICE BUILD.')));
   console.log(color.dim('Running android device build .....'));
-  return util.androidDeviceBuild();                                             //Run the device build
+  return util.androidDeviceBuild();                                             //run the device build
 })
 .then(pid => {
-  // console.log('Killing process '+pid);
-  return util.killProcess(pid);                                                 //After getting the pid kill the process tree
+  return util.killProcess(pid);                                                 //after getting the pid kill the process tree
 })
 .then(() => {
   console.log(color.underline(color.bold('\nANDROID GENYMOTION BUILD.')));
   console.log(color.dim('Running genymotion build .....'));
-  return util.androidEmuBuild('geny');                                          //Run the genymotion build
+  return util.androidEmuBuild('geny');                                          //run the genymotion build
 })
 .then(pid => {
   util.killVbox();
@@ -95,7 +115,6 @@ setup(s_flag)                                                                   
   return util.androidPackage();                                                 //Run the packaging test
 })
 .then(pid => {
-  // console.log('Killing process '+pid+'.');
   return util.killProcess(pid);                                                 //After getting the pid kill the process tree
 })
 .then(() => {

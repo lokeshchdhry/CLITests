@@ -13,8 +13,6 @@
     "chalk": "^2.0.1",
     "commander": "^2.11.0",
     "fs-extra": "^4.0.1",
-    "inquirer": "^3.2.0",
-    "node-persist": "^2.1.0",
     "tree-kill": "^1.1.0"
   }
 }

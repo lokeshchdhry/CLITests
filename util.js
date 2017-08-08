@@ -26,7 +26,8 @@ const platform = os.platform,
       verFile = path.join(installFolderPath, '.version'),
       appPath = path.join(__dirname, 'projects', 'CLItestApp'),
       genFilePath = path.join(__dirname, 'generatedfiles'),
-      apkPath = path.join(__dirname, 'generatedfiles', 'CLItestApp.apk');
+      apkPath = path.join(__dirname, 'generatedfiles', 'CLItestApp.apk'),
+      ipaPath = path.join(__dirname, 'generatedfiles', 'CLItestApp.ipa');
 
 let
   appcExe, pathPart, appc_ver;
@@ -350,7 +351,7 @@ static androidEmuBuild(emutype){
 }
 
 /**
-Build to device
+Build to android device
 @param {String} pid - pid of the spawn process
 @param {String} output - output of spawn
 @param {array} args - argument to pass to the spawn command
@@ -517,7 +518,7 @@ static installAPKOnDevice(){
       }
       else{
         deviceid = device[0].id;                                                //Getting the device id/serial
-        console.log('Installing APK on the connected device: '+color.cyan(deviceid));
+        console.log(color.dim('Installing APK on the connected device: '+color.cyan(deviceid)));
         return client.install(deviceid, apkPath);                               //Install the apk on the device
       }
     })
@@ -618,6 +619,179 @@ static killVbox(){
     }, 2000);
   });
 }
+
+/**
+Build to ios simulator
+@param {String} pid - pid of the spawn process
+@param {String} output - output of spawn
+@param {array} args - argument to pass to the spawn command
+@param {String} platform - platform obtained from test_config.json
+@param {String} target - target obtained from test_config.json
+@param {String} deviceid - deviceid obtained from test_config.json
+**/
+static iosEmuBuild(){
+  const
+    platform = configData.ios.simulatorbuild.platform,
+    target = configData.ios.simulatorbuild.target,
+    deviceid = configData.ios.simulatorbuild.deviceid;
+
+  let
+    args = ['run',
+            '--platform', platform,
+            '--target', target,
+            '--device-id', deviceid,
+            '--project-dir',appPath],
+    output;
+
+    args = args.concat(FLAGS);
+    // console.log(args);
+  return new Promise((resolve, reject) => {
+    const
+      subspawn = this.platformConvert(appcExe, args),
+      spawn_prc = spawn(appcExe, args);
+    let
+      pid = '';
+
+      spawn_prc.stdout.on('data', data => {
+        output += data.toString().trim();
+      });
+
+      pid = spawn_prc.pid;                                                      //Getting the pid of the spawn_prc
+      //There is no way I can wait till the emulator launches, installs & launches app, using setTimeout for this purpose
+      setTimeout(() => {
+        if(/Start simulator log/g.test(output)){
+          console.log('\u2714 App '+color.cyan('CLItestApp')+' successfully installed & launched on Iphone simulator: '+color.cyan(deviceid));
+          resolve(pid);                                                         //Resolving with the pid
+        }
+        else{
+          console.log('\u2717 App '+color.cyan('CLItestApp')+' failed to install & launch on Iphone simulator: '+ color.cyan(deviceid));
+          resolve(pid);                                                         //Rejecting with pid
+        }
+      }, 60000);
+  });
+}
+
+/**
+Build to ios device
+@param {String} pid - pid of the spawn process
+@param {String} output - output of spawn
+@param {array} args - argument to pass to the spawn command
+@param {String} platform - platform obtained from test_config.json
+@param {String} target - target obtained from test_config.json
+@param {String} deviceid - deviceid obtained from test_config.json
+**/
+static iosDeviceBuild(){
+  const
+    platform = configData.ios.devicebuild.platform,
+    target = configData.ios.devicebuild.target,
+    deviceid = configData.ios.devicebuild.deviceid,
+    developername = configData.ios.devicebuild.developername,
+    provisioningprofileuuid = configData.ios.devicebuild.provisioningprofileuuid;
+
+  let
+    args = ['run',
+            '--platform', platform,
+            '--target', target,
+            '--device-id', deviceid,
+            '--project-dir',appPath,
+            '--developer-name', developername,
+            '--pp-uuid', provisioningprofileuuid],
+    output;
+
+    args = args.concat(FLAGS);
+    // console.log(args);
+  return new Promise((resolve, reject) => {
+    const
+      subspawn = this.platformConvert(appcExe, args),
+      spawn_prc = spawn(appcExe, args);
+    let
+      pid = '',
+      client,
+      deviceid_adb;
+
+      spawn_prc.stdout.on('data', data => {
+        output += data.toString().trim();
+      });
+
+      pid = spawn_prc.pid;                                                      //Getting the pid of the spawn_prc
+      //wait for 1 min for the app to install & launch on device then kill the process
+      setTimeout(() =>{
+        if(/Please manually launch the application/g.test(output)){
+          console.log('\u2714 App '+color.cyan('CLItestApp')+' installed successfully ios device: '+color.cyan(deviceid));
+          resolve(pid);
+        }
+        else{
+          console.log('\u2717 App '+color.cyan('CLItestApp')+' failed to install on ios device: '+color.cyan(deviceid));
+          resolve(pid);                                                         //Rejecting with pid
+        }
+      }, 60000);
+  });
+}
+
+/**
+Adhoc packaging ios
+@param {String} pid - pid of the spawn process
+@param {String} output - output of spawn
+@param {array} args - argument to pass to the spawn command
+@param {String} platform - platform obtained from test_config.json
+@param {String} target - target obtained from test_config.json
+@param {String} distributionname - iOS Distribution Certificate
+@param {String} provisioningprofileuuid - provisioning profile uuid
+**/
+static iosAdhocPackage(){
+  const
+    platform = configData.ios.packageadhoc.platform,
+    target = configData.ios.packageadhoc.target,
+    distributionname = configData.ios.packageadhoc.distributionname,
+    provisioningprofileuuid = configData.ios.packageadhoc.provisioningprofileuuid;
+
+  let
+    args = ['run',
+            '--platform', platform,
+            '--target', target,
+            '--distribution-name', distributionname,
+            '--pp-uuid', provisioningprofileuuid,
+            '--output-dir', genFilePath],
+    output;
+    args = args.concat(FLAGS);
+    // console.log(args);
+    return new Promise((resolve, reject) => {
+      //cd in to the project dir
+      process.chdir(appPath);
+      const
+        subspawn = this.platformConvert(appcExe, args),
+        spawn_prc = spawn(appcExe, args);
+      let
+        pid = '';
+
+      spawn_prc.stdout.on('data', data => {
+        output += data.toString().trim();
+      });
+      pid = spawn_prc.pid;                                                      //Getting the pid of the spawn_prc
+
+      spawn_prc.on('exit', code => {
+        if(code !== 0){
+          console.log('\u2717 Something went wrong while packaging. Please check the logs at :');
+          reject(false);                                                        //rejecting it with fail
+        }
+      });
+      spawn_prc.on('close', () => {
+        const
+          ipaexists = fs.pathExistsSync(ipaPath);
+
+        if(/Finished building the application/g.test(output) && ipaPath){                      //Checking if app is packaged & the apk is present
+          console.log('\u2714 App '+color.cyan('CLItestApp')+' successfully packaged at: '+color.cyan(genFilePath+'/CLItestApp.ipa'));
+          resolve(pid);                                                         //Resolving with the pid
+        }
+        else if(/ERROR/g.test(output)){
+          console.log('\u2717 ERROR: '+ color.error(output.split('ERROR')[1]));
+          // console.log('App failed to package. Please refer the logs at: ');
+          resolve(pid);                                                         //Resolving with pid
+        }
+      });
+    });
+}
+
   /**
   Convert ChildProcess.spawn() arguments to be more cross-platform
   @param {String} cmd - the external program/process to call
