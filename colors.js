@@ -8,4 +8,5 @@ module.exports = {
     underline: chalk.underline,
     cyan: chalk.cyan,
     bold: chalk.bold,
+    dim: chalk.dim
 };
