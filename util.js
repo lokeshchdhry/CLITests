@@ -3,7 +3,6 @@
 const spawn = require('child_process').spawn,
       exec = require('child_process').exec,
       configData = require('./test_config'),
-      setup = require('./setup'),
       fs = require('fs-extra'),
       path = require('path'),
       os = require('os'),
