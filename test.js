@@ -3,7 +3,6 @@
 const
     program = require('commander'),
     VER = require('./package.json').version,
-    setup = require('./setup'),
     util = require('./util'),
     kill = require('tree-kill'),
     color = require('./colors');
