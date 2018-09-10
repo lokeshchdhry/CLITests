@@ -8,16 +8,15 @@ const spawn = require('child_process').spawn,
       os = require('os'),
       kill = require('tree-kill'),
       color = require('./colors'),
-      adb = require('adbkit');
+      adb = require('adbkit'),
+      log = require('./log');
 
 const platform = os.platform,
       FLAGS = ['--no-banner', '--no-colors', '--no-prompt'],
       BRANCH = 0,
       NO_BRANCH = 1,
-      PATTERN0 = /_|^[A-z]/,                                                    //Pattern to check if the sdk is a branch
       PATTERN1 = /You're up-to-date/g,                                          //Pattern to check if we have the latest sdk from the branch
       PATTERN2 = /successfully installed/g,                                     //Pattern to check if the sdk is successfully installed
-      PATTERN3 = /_|^[A-z]/,
       //Getting the appc cli version from the .version file
       installFolderPath = path.join('/Users', process.env.USER, '.appcelerator', 'install'),
       verFile = path.join(installFolderPath, '.version'),
@@ -56,7 +55,8 @@ class util{
       isInstalled: false
     };
     //Checking if entered value is a branch or no branch
-    if(PATTERN0.test(value)){
+    if(value.indexOf('.') == -1){
+    // if(PATTERN0.test(value)){
       sdkinfo.type = BRANCH;
       sdkinfo.val = value;
     }
@@ -113,7 +113,8 @@ class util{
         sdkpath = '';
 
       if(value !== undefined){                                                  //value will be undefined if no SDK is specifed in the command
-        if(!PATTERN0.test(value)){
+        if(value.indexOf('.') != -1){                                           //If '.' is found then it must not be a branch
+        // if(!PATTERN0.test(value)){
           new Promise((resolve, reject)=>{
             this.getSDKInstallPath(resolve, reject);
           })
@@ -170,7 +171,7 @@ class util{
 
       const
         subspawn = this.platformConvert(appcExe, args),
-        spawn_prc = spawn(appcExe, args);
+        spawn_prc = spawn(subspawn, args);
 
       spawn_prc.stdout.on('data', data => {
         output += data.toString();
@@ -194,8 +195,9 @@ class util{
         else{
           //Installation done successfully
           if(PATTERN2.test(output)){
-            console.log('\u2714 Done installing SDK.');
-            resolve();                                                          //Resolve with nothing
+            sdkval = output.split('Setting Titanium SDK')[1].split(' ')[1];
+            console.log('\u2714 Done installing SDK: '+color.cyan(sdkval));
+            resolve(sdkval);                                                          //Resolve with nothing
           }
         }
       });
@@ -223,7 +225,8 @@ class util{
 
         const
           subspawn = this.platformConvert(appcExe, args),
-          spawn_prc = spawn(appcExe, args);
+          spawn_prc = spawn(subspawn, args);
+
           spawn_prc.stdout.on('data', data => {
             if(PATTERN.test(data)){
               console.log('\u2714 Selected SDK '+color.cyan(sdk)+' in the CLI.');
@@ -264,18 +267,20 @@ class util{
                 '--platforms', 'all',
                 '-d', appPath,
                 '--no-services'],
-        output;
+        output = '';
 
       args = args.concat(FLAGS);
       // console.log(args);
       const
         subspawn = this.platformConvert(appcExe, args),
-        spawn_prc = spawn(appcExe, args);
+        spawn_prc = spawn(subspawn, args);
 
       spawn_prc.stdout.on('data', data => {
         output += data.toString().trim();
       });
+
       spawn_prc.on('exit', code => {
+        log.appCreate_Log(output);                                              //Writing the log file
         if(code !== 0){
           console.log('\u2717 Failed to create project.');
           reject(false);                                                        //rejecting it with fail is app creation fails
@@ -300,21 +305,18 @@ Build to emulator native or genymotion
 @param {String} deviceid - deviceid obtained from test_config.json
 **/
 static androidEmuBuild(emutype){
-  const
-    platform = configData.android.emulatorbuild.platform,
-    target = configData.android.emulatorbuild.target;
   let
     deviceid;
   if(emutype === 'geny'){                                                       //Checking if emulator type is genymotion
-    deviceid = configData.android.genymotionbuild.deviceid;                     //If yes the get the genymotion deviceid
+    deviceid = configData.android.genymotionbuild.deviceid.trim();                     //If yes the get the genymotion deviceid
   }
   else{
-    deviceid = configData.android.emulatorbuild.deviceid;                       //If no then get the native android emulator deviceid
+    deviceid = configData.android.emulatorbuild.deviceid.trim();                       //If no then get the native android emulator deviceid
   }
   let
     args = ['run',
-            '--platform', platform,
-            '--target', target,
+            '--platform', 'android',
+            '--target', 'emulator',
             '--device-id', deviceid,
             '--project-dir',appPath],
     output;
@@ -324,7 +326,7 @@ static androidEmuBuild(emutype){
   return new Promise((resolve, reject) => {
     const
       subspawn = this.platformConvert(appcExe, args),
-      spawn_prc = spawn(appcExe, args);
+      spawn_prc = spawn(subspawn, args);
     let
       pid = '';
 
@@ -332,9 +334,19 @@ static androidEmuBuild(emutype){
         output += data.toString().trim();
       });
 
+      // spawn_prc.on('exit', code => {
+      //
+      // });
+
       pid = spawn_prc.pid;                                                      //Getting the pid of the spawn_prc
       //There is no way I can wait till the emulator launches, installs & launches app, using setTimeout for this purpose
       setTimeout(() => {
+        if(emutype === 'geny'){
+          log.androidGeny_Log(output);                                            //Writing the log file
+        }
+        else{
+          log.androidEmu_Log(output);                                             //Writing the log file
+        }
         if(/Start application log/g.test(output)){
           console.log('\u2714 App '+color.cyan('CLItestApp')+' successfully installed & launched on android emulator: '+color.cyan(deviceid));
           resolve(pid);                                                         //Resolving with the pid
@@ -343,7 +355,7 @@ static androidEmuBuild(emutype){
           console.log('\u2717 App '+color.cyan('CLItestApp')+' failed to install & launch on emulator: '+ color.cyan(deviceid));
           resolve(pid);                                                         //Rejecting with pid
         }
-      }, 60000);
+      }, 120000);
   });
 }
 
@@ -359,14 +371,12 @@ Build to android device
 **/
 static androidDeviceBuild(){
   const
-    platform = configData.android.devicebuild.platform,
-    target = configData.android.devicebuild.target,
-    deviceid = configData.android.devicebuild.deviceid;
+    deviceid = configData.android.devicebuild.deviceid.trim();
 
   let
     args = ['run',
-            '--platform', platform,
-            '--target', target,
+            '--platform', 'android',
+            '--target', 'device',
             '--device-id', deviceid,
             '--project-dir',appPath],
     output;
@@ -376,7 +386,7 @@ static androidDeviceBuild(){
   return new Promise((resolve, reject) => {
     const
       subspawn = this.platformConvert(appcExe, args),
-      spawn_prc = spawn(appcExe, args);
+      spawn_prc = spawn(subspawn, args);
     let
       pid = '',
       client,
@@ -389,6 +399,7 @@ static androidDeviceBuild(){
       pid = spawn_prc.pid;                                                      //Getting the pid of the spawn_prc
       //wait for 1 min for the app to install & launch on device then kill the process
       setTimeout(() =>{
+        // log.androidDevice_Log(output);                                             //Writing the log file
         if(/Start application log/g.test(output)){
           console.log('\u2714 App '+color.cyan('CLItestApp')+' successfully installed & launched on device: '+color.cyan(deviceid));
           console.log(color.dim('Deleting the app '+color.cyan('CLItestApp')+' from the device: '+color.cyan(deviceid)));
@@ -423,7 +434,7 @@ static androidDeviceBuild(){
           console.log('\u2717 App '+color.cyan('CLItestApp')+' failed to install & launch on device: '+color.cyan(deviceid));
           resolve(pid);                                                         //Rejecting with pid
         }
-      }, 60000);
+      }, 120000);
   });
 }
 
@@ -441,29 +452,26 @@ Package the app
 **/
 static androidPackage(){
   const
-    platform = configData.android.package.platform,
-    target = configData.android.package.target,
-    keystore = configData.android.package.keystore,
-    storepassword = configData.android.package.storepassword,
-    alias = configData.android.package.alias;
+    keystore = configData.android.package.keystore.trim(),
+    storepassword = configData.android.package.storepassword.trim(),
+    alias = configData.android.package.alias.trim();
 
   let
     args = ['run',
-            '--platform', platform,
-            '--target', target,
+            '--platform', 'android',
+            '--target', 'dist-playstore',
             '--keystore', keystore,
             '--store-password', storepassword,
             '--alias', alias,
             '--output-dir', genFilePath],
     output;
     args = args.concat(FLAGS);
-    // console.log(args);
     return new Promise((resolve, reject) => {
       //cd in to the project dir
       process.chdir(appPath);
       const
         subspawn = this.platformConvert(appcExe, args),
-        spawn_prc = spawn(appcExe, args);
+        spawn_prc = spawn(subspawn, args);
       let
         pid = '';
 
@@ -473,6 +481,7 @@ static androidPackage(){
       pid = spawn_prc.pid;                                                      //Getting the pid of the spawn_prc
 
       spawn_prc.on('exit', code => {
+        // log.androidPkg_Log(output);                                             //Writing the log file
         if(code !== 0){
           console.log('\u2717 Something went wrong while packaging. Please check the logs at :');
           reject(false);                                                        //rejecting it with fail
@@ -533,6 +542,7 @@ static installAPKOnDevice(){
         return client.uninstall(deviceid, 'com.appc.clitestapp');               //If activity is started uninstall the app from the device
       }
       else{
+        console.log(color.error('\u2717 App could not be launched on device'));
         resolve(false);                                                         //If activity did not start resolve with false
       }
     })
@@ -546,8 +556,9 @@ static installAPKOnDevice(){
         resolve(false);                                                         //If uninstall is unsuccessfull then resolve with false
       }
     })
-    .catch(err => {
-      console.log(err);                                                         //Catch & display errors if any
+    .catch(err => {                                                             //Catch & display errors if any
+      console.log(err);
+      resolve(false);
     });
   });
 }
@@ -591,7 +602,7 @@ static killProcess(pid){
     setTimeout(() => {
       kill(pid);
       resolve(true);
-    }, 5000);
+    }, 2000);
   });
 }
 
@@ -601,7 +612,7 @@ Poweroff Vbox headless. We have to do this as when we kill the spawn process the
 **/
 static killVbox(){
   const
-    genyid = configData.android.genymotionbuild.deviceid;
+    genyid = configData.android.genymotionbuild.deviceid.trim();
   new Promise(resolve => {
     setTimeout(() => {
       exec('VBoxManage controlvm '+'"'+genyid+'"'+' poweroff', (err, done) => {
@@ -613,7 +624,7 @@ static killVbox(){
           resolve(true);
         }
       });
-    }, 2000);
+    }, 1000);
   });
 }
 
@@ -626,16 +637,14 @@ Build to ios simulator
 @param {String} target - target obtained from test_config.json
 @param {String} deviceid - deviceid obtained from test_config.json
 **/
-static iosEmuBuild(){
+static iosSimBuild(){
   const
-    platform = configData.ios.simulatorbuild.platform,
-    target = configData.ios.simulatorbuild.target,
-    deviceid = configData.ios.simulatorbuild.deviceid;
+    deviceid = configData.ios.simulatorbuild.deviceid.trim();
 
   let
     args = ['run',
-            '--platform', platform,
-            '--target', target,
+            '--platform', 'iphone',
+            '--target', 'simulator',
             '--device-id', deviceid,
             '--project-dir',appPath],
     output;
@@ -645,7 +654,7 @@ static iosEmuBuild(){
   return new Promise((resolve, reject) => {
     const
       subspawn = this.platformConvert(appcExe, args),
-      spawn_prc = spawn(appcExe, args);
+      spawn_prc = spawn(subspawn, args);
     let
       pid = '';
 
@@ -656,6 +665,7 @@ static iosEmuBuild(){
       pid = spawn_prc.pid;                                                      //Getting the pid of the spawn_prc
       //There is no way I can wait till the emulator launches, installs & launches app, using setTimeout for this purpose
       setTimeout(() => {
+        log.iosSim_Log(output);                                             //Writing the log file
         if(/Start simulator log/g.test(output)){
           console.log('\u2714 App '+color.cyan('CLItestApp')+' successfully installed & launched on Iphone simulator: '+color.cyan(deviceid));
           resolve(pid);                                                         //Resolving with the pid
@@ -664,7 +674,7 @@ static iosEmuBuild(){
           console.log('\u2717 App '+color.cyan('CLItestApp')+' failed to install & launch on Iphone simulator: '+ color.cyan(deviceid));
           resolve(pid);                                                         //Rejecting with pid
         }
-      }, 60000);
+      }, 90000);
   });
 }
 
@@ -679,16 +689,14 @@ Build to ios device
 **/
 static iosDeviceBuild(){
   const
-    platform = configData.ios.devicebuild.platform,
-    target = configData.ios.devicebuild.target,
-    deviceid = configData.ios.devicebuild.deviceid,
-    developername = configData.ios.devicebuild.developername,
-    provisioningprofileuuid = configData.ios.devicebuild.provisioningprofileuuid;
+    deviceid = configData.ios.devicebuild.deviceid.trim(),
+    developername = configData.ios.devicebuild.developername.trim(),
+    provisioningprofileuuid = configData.ios.devicebuild.provisioningprofileuuid.trim();
 
   let
     args = ['run',
-            '--platform', platform,
-            '--target', target,
+            '--platform', 'iphone',
+            '--target', 'device',
             '--device-id', deviceid,
             '--project-dir',appPath,
             '--developer-name', developername,
@@ -700,7 +708,7 @@ static iosDeviceBuild(){
   return new Promise((resolve, reject) => {
     const
       subspawn = this.platformConvert(appcExe, args),
-      spawn_prc = spawn(appcExe, args);
+      spawn_prc = spawn(subspawn, args);
     let
       pid = '',
       client,
@@ -713,6 +721,7 @@ static iosDeviceBuild(){
       pid = spawn_prc.pid;                                                      //Getting the pid of the spawn_prc
       //wait for 1 min for the app to install & launch on device then kill the process
       setTimeout(() =>{
+        log.iosDevice_Log(output);                                             //Writing the log file
         if(/Please manually launch the application/g.test(output)){
           console.log('\u2714 App '+color.cyan('CLItestApp')+' installed successfully ios device: '+color.cyan(deviceid));
           resolve(pid);
@@ -721,7 +730,7 @@ static iosDeviceBuild(){
           console.log('\u2717 App '+color.cyan('CLItestApp')+' failed to install on ios device: '+color.cyan(deviceid));
           resolve(pid);                                                         //Rejecting with pid
         }
-      }, 60000);
+      }, 90000);
   });
 }
 
@@ -737,15 +746,13 @@ Adhoc packaging ios
 **/
 static iosAdhocPackage(){
   const
-    platform = configData.ios.packageadhoc.platform,
-    target = configData.ios.packageadhoc.target,
-    distributionname = configData.ios.packageadhoc.distributionname,
-    provisioningprofileuuid = configData.ios.packageadhoc.provisioningprofileuuid;
+    distributionname = configData.ios.packageadhoc.distributionname.trim(),
+    provisioningprofileuuid = configData.ios.packageadhoc.provisioningprofileuuid.trim();
 
   let
     args = ['run',
-            '--platform', platform,
-            '--target', target,
+            '--platform', 'iphone',
+            '--target', 'dist-adhoc',
             '--distribution-name', distributionname,
             '--pp-uuid', provisioningprofileuuid,
             '--output-dir', genFilePath],
@@ -757,7 +764,7 @@ static iosAdhocPackage(){
       process.chdir(appPath);
       const
         subspawn = this.platformConvert(appcExe, args),
-        spawn_prc = spawn(appcExe, args);
+        spawn_prc = spawn(subspawn, args);
       let
         pid = '';
 
@@ -773,6 +780,7 @@ static iosAdhocPackage(){
         }
       });
       spawn_prc.on('close', () => {
+        log.iosPkg_Log(output);                                             //Writing the log file
         const
           ipaexists = fs.pathExistsSync(ipaPath);
 

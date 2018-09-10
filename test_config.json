@@ -10,7 +10,7 @@
     "emulatorbuild": {
       "platform": "android",
       "target": "emulator",
-      "deviceid": "Nexus_6_API_23_6.0_x86_GoogleAPI"
+      "deviceid": "Pixel_API_26_8.0_x86_GoogleAPI"
     },
     "genymotionbuild": {
       "deviceid": "Google Nexus 6P - 6.0.0 - API 23 - 1440x2560"
@@ -18,9 +18,9 @@
     "package": {
       "platform": "android",
       "target": "dist-playstore",
-      "keystore": "",
-      "storepassword": "",
-      "alias": ""
+      "keystore": "/Users/lchoudhary/Desktop/android_keystore/androidkeystore",
+      "storepassword": "bnorhwe",
+      "alias": "release"
     }
   },
   "ios": {
@@ -28,8 +28,8 @@
       "platform": "iphone",
       "target": "device",
       "deviceid": "5fc531f1a32a6f1813af7abfcd68fe14b0515b2b",
-      "developername": "",
-      "provisioningprofileuuid": ""
+      "developername": "QE Department (C64864TF2L)",
+      "provisioningprofileuuid": "41011963-a200-442d-92f5-b00a82a65bad"
     },
     "simulatorbuild": {
       "platform": "iphone",
@@ -39,8 +39,8 @@
     "packageadhoc": {
       "platform": "iphone",
       "target": "dist-adhoc",
-      "distributionname": "",
-      "provisioningprofileuuid": ""
+      "distributionname": "Michael Asher (WY35J6ST95)",
+      "provisioningprofileuuid": "75fcbd22-683c-4004-93e3-c2c344a50229"
     }
   }
 }

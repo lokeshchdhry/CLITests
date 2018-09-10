@@ -29,7 +29,7 @@ return util.isSDKInstalled(inputSDK)                                            
     console.log('SDK not installed. Installing SDK .....');
     return util.installSDK(sdkobj)                                              //install the sdk
     .then(val => {
-      console.log('Selecting in CLI the SDK: '+val);
+      console.log(color.dim('Selecting in CLI the SDK: '+val+' .....'));
       return util.selectSDK(val);                                               //select the installed sdk in the CLI
     })
     .then(result => {
@@ -49,32 +49,32 @@ return util.isSDKInstalled(inputSDK)                                            
     return util.createProject();                                                //Create app project
   }
 })
+// .then(done => {
+//   console.log(color.underline(color.bold('\nIPHONE SIMULATOR BUILD.')));
+//   console.log(color.dim('Running iphone simulator build .....'));
+//   return util.iosSimBuild();                                                    //Run IOS emulator build
+// })
+// .then(pid => {
+//   console.log('\u2714 Closing Iphone simulator.');
+//   return util.killProcess(pid);                                                 //After getting the pid kill the process tree
+// })
+// .then(() => {
+//   console.log(color.underline(color.bold('\nIOS DEVICE BUILD.')));
+//   console.log(color.dim('Running iphone device build .....'));
+//   return util.iosDeviceBuild();                                                 //Run IOS device build
+// })
+// .then(pid => {
+//   return util.killProcess(pid);                                                 //After getting the pid kill the process tree
+// })
+// .then(() => {
+//   console.log(color.underline(color.bold('\nIOS ADHOC PACKAGING.')));
+//   console.log(color.dim('Running ios adhoc packaging .....'));
+//   return util.iosAdhocPackage();                                                //Run IOS adhoc build
+// })
+// .then(pid => {
+//   return util.killProcess(pid);                                                 //After getting the pid kill the process tree
+// })
 .then(done => {
-  console.log(color.underline(color.bold('\nIPHONE SIMULATOR BUILD.')));
-  console.log(color.dim('Running iphone simulator build .....'));
-  return util.iosEmuBuild();                                                    //Run IOS emulator build
-})
-.then(pid => {
-  console.log('\u2714 Closing Iphone emulator.');
-  return util.killProcess(pid);                                                 //After getting the pid kill the process tree
-})
-.then(() => {
-  console.log(color.underline(color.bold('\nIOS DEVICE BUILD.')));
-  console.log(color.dim('Running iphone device build .....'));
-  return util.iosDeviceBuild();                                                 //Run IOS device build
-})
-.then(pid => {
-  return util.killProcess(pid);                                                 //After getting the pid kill the process tree
-})
-.then(() => {
-  console.log(color.underline(color.bold('\nIOS ADHOC PACKAGING.')));
-  console.log(color.dim('Running ios adhoc packaging .....'));
-  return util.iosAdhocPackage();                                                //Run IOS adhoc build
-})
-.then(pid => {
-  return util.killProcess(pid);                                                 //After getting the pid kill the process tree
-})
-.then(() => {
   console.log(color.underline(color.bold('\nANDROID EMULATOR BUILD.')));
   console.log(color.dim('Running emulator build .....'));
   return util.androidEmuBuild();                                                //build the app to native android emu & return the pid to then
@@ -114,7 +114,9 @@ return util.isSDKInstalled(inputSDK)                                            
   return util.installAPKOnDevice();                                             //Install the apk on the connected device
 })
 .then(done => {
-  console.log('Done running app tests.');
+  if(done){
+    console.log('Done running tests.');
+  }
 })
 .catch(err=>{
   console.log('Failed to run all tests: '+err);
